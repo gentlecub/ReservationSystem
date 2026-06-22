@@ -15,8 +15,16 @@ var builder = WebApplication.CreateBuilder(args);
 // ============================================
 // CONFIGURACIÓN DE ENTITY FRAMEWORK CORE
 // ============================================
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var usePostgres = builder.Configuration.GetValue<bool>("UsePostgres");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (usePostgres)
+        options.UseNpgsql(connectionString);
+    else
+        options.UseSqlServer(connectionString);
+});
 
 // ============================================
 // REGISTRO DE REPOSITORIOS (Dependency Injection)
@@ -64,18 +72,16 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 // ============================================
-// CONFIGURACIÓN DE CORS
+// CONFIGURACIÓN DE CORS (Dinamico para produccion)
 // ============================================
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "https://localhost:3000",
-                "https://localhost:5173"
-              )
+        var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
+            ?? new[] { "http://localhost:3000", "http://localhost:5173", "https://localhost:5173" };
+
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -127,6 +133,12 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// ============================================
+// CONFIGURACIÓN DE PUERTO PARA RAILWAY
+// ============================================
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
 var app = builder.Build();
 
 // ============================================
@@ -143,12 +155,9 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseHttpsRedirection();
 
-// Swagger solo en desarrollo
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Swagger habilitado en todos los ambientes
+app.UseSwagger();
+app.UseSwaggerUI();
 
 // CORS (debe ir antes de Authentication)
 app.UseCors("AllowReactApp");
