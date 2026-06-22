@@ -1,0 +1,16 @@
+{
+  "newResource": {
+    "name": "Sala de Prueba Cypress",
+    "description": "Creada automaticamente por tests",
+    "location": "Edificio Test, Piso 1",
+    "capacity": 15,
+    "isActive": true
+  },
+  "editResource": {
+    "name": "Sala Editada",
+    "description": "Descripcion modificada",
+    "location": "Nueva Ubicacion",
+    "capacity": 25,
+    "isActive": true
+  }
+}

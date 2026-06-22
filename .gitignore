@@ -1,0 +1,126 @@
+# =========================
+# .NET / C#
+# =========================
+bin/
+obj/
+.vs/
+*.user
+*.userosscache
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.log
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+_ReSharper*/
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.ilk
+*.meta
+*.obj
+*.iobj
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+*.log
+*.tlog
+*.vsix
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# =========================
+# Node.js / Frontend
+# =========================
+node_modules/
+dist/
+dist-ssr/
+*.local
+.npm
+.eslintcache
+.parcel-cache
+.cache
+coverage/
+.nyc_output/
+
+# Vite
+*.local
+
+# Cypress
+cypress/videos/
+cypress/screenshots/
+
+# =========================
+# Environment files
+# =========================
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+appsettings.Development.json
+appsettings.Local.json
+
+# =========================
+# IDE / Editors
+# =========================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# =========================
+# Misc
+# =========================
+*.bak
+*.backup
+
+# =========================
+# Project-specific docs
+# =========================
+Backend/SmartBookAPI/GUIA_DESARROLLO.md
+Backend/SmartBookAPI/README.md
+Frontend/reservation-app/guia-desarrollo.md
+Frontend/reservation-app/TEST_CASES.md
+Frontend/reservation-app/testguia.md

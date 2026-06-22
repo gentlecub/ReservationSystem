@@ -1,0 +1,19 @@
+{
+  "admin": {
+    "email": "admin@smartbook.com",
+    "password": "Admin123!",
+    "name": "Administrador",
+    "role": "Admin"
+  },
+  "client": {
+    "email": "cliente@test.com",
+    "password": "Test123!",
+    "name": "Cliente Test",
+    "role": "Client"
+  },
+  "newUser": {
+    "fullName": "Nuevo Usuario",
+    "email": "nuevo@test.com",
+    "password": "Nuevo123!"
+  }
+}

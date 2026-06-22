@@ -1,0 +1,364 @@
+### ============================================
+### SmartBook API - Tests de Endpoints
+### Usar con extension REST Client de VS Code
+### ============================================
+
+@baseUrl = https://localhost:7000/api
+@contentType = application/json
+
+### Variables (actualizar despues de login)
+@clientToken = {{login_client.response.body.data.token}}
+@adminToken = {{login_admin.response.body.data.token}}
+
+
+### ============================================
+### 1. AUTENTICACION
+### ============================================
+
+### TC-API-001: Registrar nuevo usuario
+# @name register_user
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+    "fullName": "Usuario Test",
+    "email": "test{{$timestamp}}@test.com",
+    "password": "Test123!"
+}
+
+### TC-API-002: Registrar usuario con email duplicado (debe fallar)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+    "fullName": "Duplicado",
+    "email": "admin@smartbook.com",
+    "password": "Test123!"
+}
+
+### TC-API-003: Login como Client
+# @name login_client
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "email": "cliente@test.com",
+    "password": "Test123!"
+}
+
+### TC-API-004: Login como Admin
+# @name login_admin
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "email": "admin@smartbook.com",
+    "password": "Admin123!"
+}
+
+### TC-API-005: Login con credenciales invalidas (debe fallar)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "email": "admin@smartbook.com",
+    "password": "wrongpassword"
+}
+
+### TC-API-006: Login con email inexistente (debe fallar)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "email": "noexiste@test.com",
+    "password": "Test123!"
+}
+
+
+### ============================================
+### 2. RECURSOS (GET - Publico con auth)
+### ============================================
+
+### TC-API-010: Obtener todos los recursos (como Client)
+GET {{baseUrl}}/resources
+Authorization: Bearer {{clientToken}}
+
+### TC-API-011: Obtener todos los recursos (como Admin)
+GET {{baseUrl}}/resources
+Authorization: Bearer {{adminToken}}
+
+### TC-API-012: Obtener recurso por ID
+GET {{baseUrl}}/resources/1
+Authorization: Bearer {{clientToken}}
+
+### TC-API-013: Obtener recurso inexistente (debe fallar 404)
+GET {{baseUrl}}/resources/99999
+Authorization: Bearer {{clientToken}}
+
+### TC-API-014: Obtener recursos sin token (debe fallar 401)
+GET {{baseUrl}}/resources
+
+
+### ============================================
+### 3. RECURSOS - CRUD (Solo Admin)
+### ============================================
+
+### TC-API-020: Crear recurso (como Admin)
+# @name create_resource
+POST {{baseUrl}}/resources
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+    "name": "Sala de Conferencias API Test",
+    "description": "Creada desde tests de API",
+    "location": "Edificio Principal, Piso 3",
+    "capacity": 25,
+    "isActive": true
+}
+
+### TC-API-021: Crear recurso (como Client - debe fallar 403)
+POST {{baseUrl}}/resources
+Content-Type: {{contentType}}
+Authorization: Bearer {{clientToken}}
+
+{
+    "name": "Sala Prohibida",
+    "description": "No deberia crearse",
+    "location": "Ninguno",
+    "capacity": 10,
+    "isActive": true
+}
+
+### TC-API-022: Actualizar recurso (como Admin)
+PUT {{baseUrl}}/resources/1
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+    "name": "Sala Actualizada",
+    "description": "Descripcion actualizada desde API test",
+    "location": "Nueva ubicacion",
+    "capacity": 30,
+    "isActive": true
+}
+
+### TC-API-023: Actualizar recurso (como Client - debe fallar 403)
+PUT {{baseUrl}}/resources/1
+Content-Type: {{contentType}}
+Authorization: Bearer {{clientToken}}
+
+{
+    "name": "Intento de hack",
+    "description": "No deberia actualizarse",
+    "location": "Ninguno",
+    "capacity": 10,
+    "isActive": false
+}
+
+### TC-API-024: Eliminar recurso (como Admin)
+### CUIDADO: Esto elimina el recurso realmente
+# DELETE {{baseUrl}}/resources/5
+# Authorization: Bearer {{adminToken}}
+
+### TC-API-025: Eliminar recurso (como Client - debe fallar 403)
+DELETE {{baseUrl}}/resources/1
+Authorization: Bearer {{clientToken}}
+
+
+### ============================================
+### 4. RESERVAS
+### ============================================
+
+### TC-API-030: Obtener reservas (como Client - solo las suyas)
+GET {{baseUrl}}/reservations
+Authorization: Bearer {{clientToken}}
+
+### TC-API-031: Obtener reservas (como Admin - todas)
+GET {{baseUrl}}/reservations
+Authorization: Bearer {{adminToken}}
+
+### TC-API-032: Obtener reserva por ID
+GET {{baseUrl}}/reservations/1
+Authorization: Bearer {{clientToken}}
+
+### TC-API-033: Crear reserva (como Client)
+# @name create_reservation
+POST {{baseUrl}}/reservations
+Content-Type: {{contentType}}
+Authorization: Bearer {{clientToken}}
+
+{
+    "resourceId": 1,
+    "reservationDate": "2025-12-25",
+    "startTime": "09:00",
+    "endTime": "10:00",
+    "notes": "Reserva de prueba desde API"
+}
+
+### TC-API-034: Crear reserva con fecha pasada (debe fallar)
+POST {{baseUrl}}/reservations
+Content-Type: {{contentType}}
+Authorization: Bearer {{clientToken}}
+
+{
+    "resourceId": 1,
+    "reservationDate": "2020-01-01",
+    "startTime": "09:00",
+    "endTime": "10:00",
+    "notes": "Fecha invalida"
+}
+
+### TC-API-035: Crear reserva con recurso inexistente (debe fallar)
+POST {{baseUrl}}/reservations
+Content-Type: {{contentType}}
+Authorization: Bearer {{clientToken}}
+
+{
+    "resourceId": 99999,
+    "reservationDate": "2025-12-26",
+    "startTime": "09:00",
+    "endTime": "10:00",
+    "notes": "Recurso no existe"
+}
+
+### TC-API-036: Actualizar estado de reserva (como Admin)
+PUT {{baseUrl}}/reservations/1
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+    "status": "Confirmed"
+}
+
+### TC-API-037: Actualizar estado (como Client - debe fallar 403)
+PUT {{baseUrl}}/reservations/1
+Content-Type: {{contentType}}
+Authorization: Bearer {{clientToken}}
+
+{
+    "status": "Confirmed"
+}
+
+### TC-API-038: Cancelar/Eliminar reserva (como Client - propia)
+### Usar ID de reserva que pertenezca al client
+# DELETE {{baseUrl}}/reservations/5
+# Authorization: Bearer {{clientToken}}
+
+### TC-API-039: Cancelar reserva de otro usuario (como Client - debe fallar)
+DELETE {{baseUrl}}/reservations/1
+Authorization: Bearer {{clientToken}}
+
+### TC-API-040: Cancelar cualquier reserva (como Admin)
+### CUIDADO: Esto elimina la reserva realmente
+# DELETE {{baseUrl}}/reservations/5
+# Authorization: Bearer {{adminToken}}
+
+
+### ============================================
+### 5. USUARIOS (Solo Admin)
+### ============================================
+
+### TC-API-050: Obtener todos los usuarios (como Admin)
+GET {{baseUrl}}/users
+Authorization: Bearer {{adminToken}}
+
+### TC-API-051: Obtener usuarios (como Client - debe fallar 403)
+GET {{baseUrl}}/users
+Authorization: Bearer {{clientToken}}
+
+### TC-API-052: Obtener usuario por ID (como Admin)
+GET {{baseUrl}}/users/1
+Authorization: Bearer {{adminToken}}
+
+### TC-API-053: Obtener usuario sin token (debe fallar 401)
+GET {{baseUrl}}/users
+
+
+### ============================================
+### 6. TESTS DE SEGURIDAD
+### ============================================
+
+### TC-API-060: Request sin token (debe fallar 401)
+GET {{baseUrl}}/reservations
+
+### TC-API-061: Request con token invalido (debe fallar 401)
+GET {{baseUrl}}/reservations
+Authorization: Bearer token_invalido_123
+
+### TC-API-062: Request con token expirado (debe fallar 401)
+### Usar un token expirado real para este test
+GET {{baseUrl}}/reservations
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2MDAwMDAwMDB9.fake
+
+### TC-API-063: SQL Injection attempt (debe ser sanitizado)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "email": "admin@test.com'; DROP TABLE Users;--",
+    "password": "test"
+}
+
+### TC-API-064: XSS attempt en notas (debe ser sanitizado)
+POST {{baseUrl}}/reservations
+Content-Type: {{contentType}}
+Authorization: Bearer {{clientToken}}
+
+{
+    "resourceId": 1,
+    "reservationDate": "2025-12-27",
+    "startTime": "09:00",
+    "endTime": "10:00",
+    "notes": "<script>alert('XSS')</script>"
+}
+
+
+### ============================================
+### 7. TESTS DE VALIDACION
+### ============================================
+
+### TC-API-070: Registro con email invalido
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+    "fullName": "Test",
+    "email": "not-an-email",
+    "password": "Test123!"
+}
+
+### TC-API-071: Registro con password vacia
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+    "fullName": "Test",
+    "email": "test@test.com",
+    "password": ""
+}
+
+### TC-API-072: Crear recurso sin nombre (debe fallar)
+POST {{baseUrl}}/resources
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+    "name": "",
+    "description": "Sin nombre",
+    "location": "Test",
+    "capacity": 10
+}
+
+### TC-API-073: Crear reserva con hora fin antes de hora inicio
+POST {{baseUrl}}/reservations
+Content-Type: {{contentType}}
+Authorization: Bearer {{clientToken}}
+
+{
+    "resourceId": 1,
+    "reservationDate": "2025-12-28",
+    "startTime": "15:00",
+    "endTime": "10:00",
+    "notes": "Hora invalida"
+}
