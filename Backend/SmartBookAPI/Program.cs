@@ -20,14 +20,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 {
     if (builder.Environment.IsProduction())
     {
-        // PostgreSQL en produccion (Railway)
-        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-        options.UseNpgsql(connectionString);
+        // PostgreSQL en produccion (Railway provee DATABASE_URL automaticamente)
+        var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL")
+            ?? throw new InvalidOperationException("DATABASE_URL no está configurada en las variables de entorno");
+        options.UseNpgsql(databaseUrl);
     }
     else
     {
         // SQL Server en desarrollo (local)
-        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("DefaultConnection no está configurada en appsettings.Development.json");
         options.UseSqlServer(connectionString);
     }
 });
@@ -52,8 +54,12 @@ builder.Services.AddScoped<IReservationService, ReservationService>();
 // CONFIGURACIÓN DE JWT AUTHENTICATION
 // ============================================
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["SecretKey"]
-    ?? throw new InvalidOperationException("JWT SecretKey no está configurado en appsettings.json");
+// En produccion, JWT_SECRET viene de variable de entorno; en desarrollo, de appsettings
+var secretKey = builder.Environment.IsProduction()
+    ? Environment.GetEnvironmentVariable("JWT_SECRET")
+        ?? throw new InvalidOperationException("JWT_SECRET no está configurada en las variables de entorno")
+    : jwtSettings["SecretKey"]
+        ?? throw new InvalidOperationException("JWT SecretKey no está configurado en appsettings.Development.json");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -188,7 +194,7 @@ using (var scope = app.Services.CreateScope())
         if (app.Environment.IsProduction())
         {
             // PostgreSQL: crear tablas desde el modelo (sin migraciones)
-            await context.Database.EnsureCreatedAsync();
+            await context.Database.MigrateAsync();
         }
         else
         {
