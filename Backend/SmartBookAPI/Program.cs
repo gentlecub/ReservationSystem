@@ -14,16 +14,22 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ============================================
 // CONFIGURACIÓN DE ENTITY FRAMEWORK CORE
+// Produccion = PostgreSQL | Desarrollo = SQL Server
 // ============================================
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-var usePostgres = builder.Configuration.GetValue<bool>("UsePostgres");
-
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    if (usePostgres)
+    if (builder.Environment.IsProduction())
+    {
+        // PostgreSQL en produccion (Railway)
+        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
         options.UseNpgsql(connectionString);
+    }
     else
+    {
+        // SQL Server en desarrollo (local)
+        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
         options.UseSqlServer(connectionString);
+    }
 });
 
 // ============================================
@@ -170,7 +176,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 // ============================================
-// SEED DATA INICIAL
+// MIGRACIONES Y SEED DATA INICIAL
 // ============================================
 using (var scope = app.Services.CreateScope())
 {
@@ -178,6 +184,19 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<AppDbContext>();
+
+        if (app.Environment.IsProduction())
+        {
+            // PostgreSQL: crear tablas desde el modelo (sin migraciones)
+            await context.Database.EnsureCreatedAsync();
+        }
+        else
+        {
+            // SQL Server: usar migraciones
+            await context.Database.MigrateAsync();
+        }
+
+        // Seed de datos iniciales
         await DbSeeder.SeedAsync(context);
     }
     catch (Exception ex)
