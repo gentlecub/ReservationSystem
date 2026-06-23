@@ -64,8 +64,8 @@ builder.Services.AddScoped<IReservationService, ReservationService>();
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 // En produccion, JWT_SECRET viene de variable de entorno; en desarrollo, de appsettings
 var secretKey = builder.Environment.IsProduction()
-    ? Environment.GetEnvironmentVariable("JWT__SECRET")
-        ?? throw new InvalidOperationException("JWT__SECRET no está configurada en las variables de entorno")
+    ? Environment.GetEnvironmentVariable("JWT_SECRET")
+        ?? throw new InvalidOperationException("JWT_SECRET no está configurada en las variables de entorno")
     : jwtSettings["SecretKey"]
         ?? throw new InvalidOperationException("JWT SecretKey no está configurado en appsettings.Development.json");
 
