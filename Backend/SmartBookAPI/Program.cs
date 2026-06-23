@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using SmartBookAPI.Configuration;
 using SmartBookAPI.Data;
 using SmartBookAPI.Middleware;
 using SmartBookAPI.Repositories.Implementations;
@@ -51,12 +52,27 @@ builder.Services.AddScoped<IResourceRepository, ResourceRepository>();
 builder.Services.AddScoped<IReservationRepository, ReservationRepository>();
 
 // ============================================
+// CONFIGURACIÓN DE SETTINGS
+// ============================================
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.Configure<TwilioSettings>(builder.Configuration.GetSection("TwilioSettings"));
+builder.Services.Configure<AppSettings>(builder.Configuration.GetSection("AppSettings"));
+
+// ============================================
+// HTTP CLIENT FACTORY (para Google OAuth y Twilio)
+// ============================================
+builder.Services.AddHttpClient();
+
+// ============================================
 // REGISTRO DE SERVICIOS (Dependency Injection)
 // ============================================
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IResourceService, ResourceService>();
 builder.Services.AddScoped<IReservationService, ReservationService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<ISmsService, SmsService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
 
 // ============================================
 // CONFIGURACIÓN DE JWT AUTHENTICATION

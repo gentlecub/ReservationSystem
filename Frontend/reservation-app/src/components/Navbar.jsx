@@ -18,7 +18,7 @@ function Navbar() {
           SmartBook
         </Link>
 
-        {/* Botón hamburguesa para mobile */}
+        {/* Boton hamburguesa para mobile */}
         <button
           className="navbar-toggler"
           type="button"
@@ -31,7 +31,7 @@ function Navbar() {
           <span className="navbar-toggler-icon"></span>
         </button>
 
-        {/* Links de navegación */}
+        {/* Links de navegacion */}
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav me-auto">
             {isAdmin() ? (
@@ -55,19 +55,32 @@ function Navbar() {
             )}
           </ul>
 
-          {/* Usuario y Logout */}
+          {/* Usuario y dropdown */}
           <div className="d-flex align-items-center">
-            <span className="navbar-text me-3">
-              <i className="bi bi-person-circle me-1"></i>
-              {user?.name || user?.email}
-              <span className="badge bg-secondary ms-2">{user?.role}</span>
-            </span>
-            <button
-              className="btn btn-outline-light btn-sm"
-              onClick={handleLogout}
-            >
-              Cerrar Sesion
-            </button>
+            <div className="dropdown">
+              <button
+                className="btn btn-outline-light btn-sm dropdown-toggle"
+                type="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+              >
+                {user?.name || user?.email}
+                <span className="badge bg-secondary ms-2">{user?.role}</span>
+              </button>
+              <ul className="dropdown-menu dropdown-menu-end">
+                <li>
+                  <Link className="dropdown-item" to="/profile">
+                    Mi Perfil
+                  </Link>
+                </li>
+                <li><hr className="dropdown-divider" /></li>
+                <li>
+                  <button className="dropdown-item text-danger" onClick={handleLogout}>
+                    Cerrar Sesion
+                  </button>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>

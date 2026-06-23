@@ -65,6 +65,11 @@ export function AuthProvider({ children }) {
     return user?.role === 'Client'
   }
 
+  // Actualizar datos del usuario
+  const updateUser = (updatedData) => {
+    setUser(prev => ({ ...prev, ...updatedData }))
+  }
+
   const value = {
     user,
     token,
@@ -72,7 +77,8 @@ export function AuthProvider({ children }) {
     login,
     logout,
     isAdmin,
-    isClient
+    isClient,
+    updateUser
   }
 
   return (

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import authService from '../services/authService'
+import { GoogleLogin } from '@react-oauth/google'
 
 function LoginPage() {
   const [email, setEmail] = useState('')
@@ -21,10 +22,8 @@ function LoginPage() {
       const response = await authService.login(email, password)
 
       if (response.success) {
-        // Guardar en contexto
         login(response.data)
 
-        // Redirigir según rol
         if (response.data.role === 'Admin') {
           navigate('/admin/dashboard')
         } else {
@@ -41,6 +40,39 @@ function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('')
+    setLoading(true)
+
+    try {
+      // Google devuelve un credential (ID token), lo enviamos al backend
+      const response = await authService.googleAuth(credentialResponse.credential)
+
+      if (response.success) {
+        login(response.data)
+
+        if (response.data.role === 'Admin') {
+          navigate('/admin/dashboard')
+        } else {
+          navigate('/client/dashboard')
+        }
+      } else {
+        setError(response.message || 'Error al iniciar sesion con Google')
+      }
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+        'Error al autenticar con Google'
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleError = () => {
+    setError('Error al iniciar sesion con Google')
   }
 
   return (
@@ -66,6 +98,25 @@ function LoginPage() {
                   ></button>
                 </div>
               )}
+
+              {/* Boton de Google */}
+              <div className="d-flex justify-content-center mb-3">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  useOneTap
+                  text="signin_with"
+                  shape="rectangular"
+                  locale="es"
+                />
+              </div>
+
+              {/* Separador */}
+              <div className="d-flex align-items-center mb-3">
+                <hr className="flex-grow-1" />
+                <span className="px-3 text-muted">o</span>
+                <hr className="flex-grow-1" />
+              </div>
 
               {/* Formulario */}
               <form onSubmit={handleSubmit}>
@@ -99,6 +150,13 @@ function LoginPage() {
                     required
                     disabled={loading}
                   />
+                </div>
+
+                {/* Link Olvide contrasena */}
+                <div className="mb-3 text-end">
+                  <Link to="/forgot-password" className="text-decoration-none small">
+                    Olvidaste tu contrasena?
+                  </Link>
                 </div>
 
                 <button
