@@ -1,6 +1,8 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using SmartBookAPI.DTOs;
 using SmartBookAPI.DTOs.Auth;
@@ -15,15 +17,18 @@ public class AuthService : IAuthService
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IConfiguration _configuration;
+    private readonly IWebHostEnvironment _environment;
 
     public AuthService(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _configuration = configuration;
+        _environment = environment;
     }
 
     public async Task<ApiResponse<AuthResponse>> RegisterAsync(RegisterRequest request)
@@ -85,8 +90,18 @@ public class AuthService : IAuthService
     private string GenerateJwtToken(User user)
     {
         var jwtSettings = _configuration.GetSection("JwtSettings");
-        var secretKey = jwtSettings["SecretKey"]
-            ?? throw new InvalidOperationException("JWT SecretKey no configurado");
+
+        string secretKey;
+        if (_environment.IsProduction())
+        {
+            secretKey = Environment.GetEnvironmentVariable("JWT_SECRET")
+                ?? throw new InvalidOperationException("JWT_SECRET no está configurada en las variables de entorno");
+        }
+        else
+        {
+            secretKey = jwtSettings["SecretKey"]
+                ?? throw new InvalidOperationException("JWT SecretKey no configurado en appsettings");
+        }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
