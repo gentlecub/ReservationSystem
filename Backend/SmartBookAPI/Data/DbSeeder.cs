@@ -10,8 +10,6 @@ public static class DbSeeder
 {
     public static async Task SeedAsync(AppDbContext context)
     {
-        // Asegurar que la base de datos esté creada
-        await context.Database.MigrateAsync();
 
         // Seed de Roles (si no existen)
         if (!await context.Roles.AnyAsync())
