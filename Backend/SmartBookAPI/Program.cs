@@ -201,8 +201,8 @@ using (var scope = app.Services.CreateScope())
 
         if (app.Environment.IsProduction())
         {
-            // PostgreSQL: crear tablas desde el modelo (sin migraciones)
-            await context.Database.MigrateAsync();
+            // PostgreSQL: crear tablas desde el modelo (sin migraciones de SQL Server)
+            await context.Database.EnsureCreatedAsync();
         }
         else
         {
