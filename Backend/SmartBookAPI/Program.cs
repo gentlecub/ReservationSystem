@@ -23,7 +23,15 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         // PostgreSQL en produccion (Railway provee DATABASE_URL automaticamente)
         var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL")
             ?? throw new InvalidOperationException("DATABASE_URL no está configurada en las variables de entorno");
-        options.UseNpgsql(databaseUrl);
+
+        // Convertir formato URL de Railway a formato Npgsql
+        // Railway: postgresql://usuario:password@host:puerto/database
+        // Npgsql:  Host=host;Port=puerto;Database=database;Username=usuario;Password=password
+        var uri = new Uri(databaseUrl);
+        var userInfo = uri.UserInfo.Split(':');
+        var connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
+
+        options.UseNpgsql(connectionString);
     }
     else
     {
