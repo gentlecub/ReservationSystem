@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<Role> Roles { get; set; }
     public DbSet<Resource> Resources { get; set; }
     public DbSet<Reservation> Reservations { get; set; }
+    public DbSet<NotificationLog> NotificationLogs { get; set; }
 
     /// <summary>
     /// Configura el modelo de datos usando Fluent API.
@@ -98,6 +99,35 @@ public class AppDbContext : DbContext
 
             // Índice para buscar reservas por estado
             entity.HasIndex(r => r.Status);
+        });
+
+        // ============================================
+        // CONFIGURACIÓN DE LA ENTIDAD NOTIFICATION LOG
+        // ============================================
+        modelBuilder.Entity<NotificationLog>(entity =>
+        {
+            entity.ToTable("NotificationLogs");
+
+            // Relación: Un NotificationLog pertenece a una Reservation (opcional)
+            entity.HasOne(n => n.Reservation)
+                  .WithMany()
+                  .HasForeignKey(n => n.ReservationId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            // Relación: Un NotificationLog pertenece a un User
+            entity.HasOne(n => n.User)
+                  .WithMany()
+                  .HasForeignKey(n => n.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Índice para buscar notificaciones por reserva
+            entity.HasIndex(n => n.ReservationId);
+
+            // Índice para buscar notificaciones por usuario
+            entity.HasIndex(n => n.UserId);
+
+            // Índice para buscar notificaciones por tipo
+            entity.HasIndex(n => n.Type);
         });
     }
 }

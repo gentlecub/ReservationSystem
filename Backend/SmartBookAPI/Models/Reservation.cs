@@ -32,6 +32,11 @@ public class Reservation
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>
+    /// Indica si se ha enviado un recordatorio para esta reserva
+    /// </summary>
+    public bool ReminderSent { get; set; } = false;
+
     // Propiedades de navegación
     [ForeignKey("UserId")]
     public User? User { get; set; }

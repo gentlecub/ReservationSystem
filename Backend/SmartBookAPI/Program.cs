@@ -5,9 +5,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SmartBookAPI.Configuration;
 using SmartBookAPI.Data;
+using SmartBookAPI.Hubs;
 using SmartBookAPI.Middleware;
 using SmartBookAPI.Repositories.Implementations;
 using SmartBookAPI.Repositories.Interfaces;
+using SmartBookAPI.Services;
 using SmartBookAPI.Services.Implementations;
 using SmartBookAPI.Services.Interfaces;
 
@@ -73,6 +75,18 @@ builder.Services.AddScoped<IReservationService, ReservationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
+// ============================================
+// SIGNALR (Notificaciones Push en tiempo real)
+// ============================================
+builder.Services.AddSignalR();
+
+// ============================================
+// SERVICIOS EN SEGUNDO PLANO
+// ============================================
+builder.Services.AddHostedService<ReminderBackgroundService>();
 
 // ============================================
 // CONFIGURACIÓN DE JWT AUTHENTICATION
@@ -102,6 +116,24 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ClockSkew = TimeSpan.Zero // Sin tolerancia de tiempo
+    };
+
+    // Configuración para SignalR: permite que el token venga como query string
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+
+            // Si el request es para el hub de notificaciones, tomar el token del query string
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/notifications"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -204,6 +236,9 @@ app.UseAuthorization();
 
 // Mapear Controllers
 app.MapControllers();
+
+// Mapear Hub de SignalR para notificaciones push
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 // ============================================
 // MIGRACIONES Y SEED DATA INICIAL

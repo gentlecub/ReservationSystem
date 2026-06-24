@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Mail;
 using Microsoft.Extensions.Options;
 using SmartBookAPI.Configuration;
+using SmartBookAPI.DTOs.Notifications;
 using SmartBookAPI.Services.Interfaces;
 
 namespace SmartBookAPI.Services.Implementations;
@@ -78,6 +79,157 @@ public class EmailService : IEmailService
                 <p>Tu cuenta ha sido verificada exitosamente.</p>
                 <p>Ya puedes comenzar a hacer reservas en SmartBook.</p>
                 <p><a href='{GetFrontendUrl()}' style='background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Ir a SmartBook</a></p>
+                <br/>
+                <p>Saludos,<br/>El equipo de SmartBook</p>
+            </body>
+            </html>";
+
+        return await SendEmailAsync(email, subject, body);
+    }
+
+    public async Task<bool> SendReservationCreatedAsync(string email, string fullName, ReservationDetails details)
+    {
+        var subject = "Tu reserva está pendiente de confirmación - SmartBook";
+        var body = $@"
+            <html>
+            <body style='font-family: Arial, sans-serif; padding: 20px;'>
+                <h2>Hola {fullName},</h2>
+                <p>Tu reserva ha sido creada y está pendiente de confirmación.</p>
+
+                <div style='background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+                    <h3 style='margin-top: 0; color: #333;'>Detalles de tu reserva</h3>
+                    <p><strong>Recurso:</strong> {details.ResourceName}</p>
+                    {(string.IsNullOrEmpty(details.ResourceLocation) ? "" : $"<p><strong>Ubicación:</strong> {details.ResourceLocation}</p>")}
+                    <p><strong>Fecha:</strong> {details.Date:dd/MM/yyyy}</p>
+                    <p><strong>Horario:</strong> {details.StartTime:HH:mm} - {details.EndTime:HH:mm}</p>
+                    <p><strong>Estado:</strong> <span style='color: #FFA500;'>Pendiente</span></p>
+                </div>
+
+                <p>Te notificaremos cuando tu reserva sea confirmada.</p>
+
+                <p><a href='{GetFrontendUrl()}/reservations' style='background-color: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Ver mis reservas</a></p>
+                <br/>
+                <p>Saludos,<br/>El equipo de SmartBook</p>
+            </body>
+            </html>";
+
+        return await SendEmailAsync(email, subject, body);
+    }
+
+    public async Task<bool> SendReservationConfirmedAsync(string email, string fullName, ReservationDetails details)
+    {
+        var subject = "¡Tu reserva ha sido confirmada! - SmartBook";
+        var body = $@"
+            <html>
+            <body style='font-family: Arial, sans-serif; padding: 20px;'>
+                <h2>Hola {fullName},</h2>
+                <p>¡Excelentes noticias! Tu reserva ha sido confirmada.</p>
+
+                <div style='background-color: #e8f5e9; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+                    <h3 style='margin-top: 0; color: #2e7d32;'>Detalles de tu reserva confirmada</h3>
+                    <p><strong>Recurso:</strong> {details.ResourceName}</p>
+                    {(string.IsNullOrEmpty(details.ResourceLocation) ? "" : $"<p><strong>Ubicación:</strong> {details.ResourceLocation}</p>")}
+                    <p><strong>Fecha:</strong> {details.Date:dd/MM/yyyy}</p>
+                    <p><strong>Horario:</strong> {details.StartTime:HH:mm} - {details.EndTime:HH:mm}</p>
+                    <p><strong>Estado:</strong> <span style='color: #4CAF50;'>Confirmada</span></p>
+                </div>
+
+                <p>Por favor, llega puntualmente a tu cita.</p>
+
+                <p><a href='{GetFrontendUrl()}/reservations' style='background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Ver mis reservas</a></p>
+                <br/>
+                <p>Saludos,<br/>El equipo de SmartBook</p>
+            </body>
+            </html>";
+
+        return await SendEmailAsync(email, subject, body);
+    }
+
+    public async Task<bool> SendReservationCancelledAsync(string email, string fullName, ReservationDetails details)
+    {
+        var subject = "Tu reserva ha sido cancelada - SmartBook";
+        var body = $@"
+            <html>
+            <body style='font-family: Arial, sans-serif; padding: 20px;'>
+                <h2>Hola {fullName},</h2>
+                <p>Tu reserva ha sido cancelada.</p>
+
+                <div style='background-color: #ffebee; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+                    <h3 style='margin-top: 0; color: #c62828;'>Detalles de la reserva cancelada</h3>
+                    <p><strong>Recurso:</strong> {details.ResourceName}</p>
+                    {(string.IsNullOrEmpty(details.ResourceLocation) ? "" : $"<p><strong>Ubicación:</strong> {details.ResourceLocation}</p>")}
+                    <p><strong>Fecha:</strong> {details.Date:dd/MM/yyyy}</p>
+                    <p><strong>Horario:</strong> {details.StartTime:HH:mm} - {details.EndTime:HH:mm}</p>
+                    <p><strong>Estado:</strong> <span style='color: #f44336;'>Cancelada</span></p>
+                </div>
+
+                <p>Si deseas realizar una nueva reserva, puedes hacerlo desde nuestra plataforma.</p>
+
+                <p><a href='{GetFrontendUrl()}/resources' style='background-color: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Hacer nueva reserva</a></p>
+                <br/>
+                <p>Saludos,<br/>El equipo de SmartBook</p>
+            </body>
+            </html>";
+
+        return await SendEmailAsync(email, subject, body);
+    }
+
+    public async Task<bool> SendReservationReminderAsync(string email, string fullName, ReservationDetails details)
+    {
+        var subject = "Recordatorio: Tu cita es mañana - SmartBook";
+        var body = $@"
+            <html>
+            <body style='font-family: Arial, sans-serif; padding: 20px;'>
+                <h2>Hola {fullName},</h2>
+                <p>Te recordamos que tienes una reserva programada para mañana.</p>
+
+                <div style='background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+                    <h3 style='margin-top: 0; color: #1565c0;'>Detalles de tu reserva</h3>
+                    <p><strong>Recurso:</strong> {details.ResourceName}</p>
+                    {(string.IsNullOrEmpty(details.ResourceLocation) ? "" : $"<p><strong>Ubicación:</strong> {details.ResourceLocation}</p>")}
+                    <p><strong>Fecha:</strong> {details.Date:dd/MM/yyyy}</p>
+                    <p><strong>Horario:</strong> {details.StartTime:HH:mm} - {details.EndTime:HH:mm}</p>
+                </div>
+
+                <p><strong>Recuerda:</strong></p>
+                <ul>
+                    <li>Llega puntualmente a tu cita</li>
+                    <li>Si no puedes asistir, por favor cancela tu reserva con anticipación</li>
+                </ul>
+
+                <p><a href='{GetFrontendUrl()}/reservations' style='background-color: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Ver mis reservas</a></p>
+                <br/>
+                <p>Saludos,<br/>El equipo de SmartBook</p>
+            </body>
+            </html>";
+
+        return await SendEmailAsync(email, subject, body);
+    }
+
+    public async Task<bool> SendReservationModifiedAsync(string email, string fullName, ReservationDetails details, string changeDescription)
+    {
+        var subject = "Tu reserva ha sido modificada - SmartBook";
+        var body = $@"
+            <html>
+            <body style='font-family: Arial, sans-serif; padding: 20px;'>
+                <h2>Hola {fullName},</h2>
+                <p>Tu reserva ha sido modificada.</p>
+
+                <div style='background-color: #fff3e0; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+                    <h3 style='margin-top: 0; color: #e65100;'>Cambios realizados</h3>
+                    <p>{changeDescription}</p>
+                </div>
+
+                <div style='background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;'>
+                    <h3 style='margin-top: 0; color: #333;'>Detalles actualizados de tu reserva</h3>
+                    <p><strong>Recurso:</strong> {details.ResourceName}</p>
+                    {(string.IsNullOrEmpty(details.ResourceLocation) ? "" : $"<p><strong>Ubicación:</strong> {details.ResourceLocation}</p>")}
+                    <p><strong>Fecha:</strong> {details.Date:dd/MM/yyyy}</p>
+                    <p><strong>Horario:</strong> {details.StartTime:HH:mm} - {details.EndTime:HH:mm}</p>
+                    <p><strong>Estado:</strong> {details.Status}</p>
+                </div>
+
+                <p><a href='{GetFrontendUrl()}/reservations' style='background-color: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Ver mis reservas</a></p>
                 <br/>
                 <p>Saludos,<br/>El equipo de SmartBook</p>
             </body>

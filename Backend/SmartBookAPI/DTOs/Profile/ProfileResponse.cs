@@ -13,4 +13,8 @@ public class ProfileResponse
     public string Role { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+
+    // Preferencias de notificación
+    public bool EmailNotifications { get; set; } = true;
+    public bool SmsNotifications { get; set; } = true;
 }

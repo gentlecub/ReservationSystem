@@ -34,7 +34,9 @@ public class ProfileService : IProfileService
             ProfilePhotoUrl = user.ProfilePhotoUrl,
             Role = user.Role?.RoleName ?? "Client",
             CreatedAt = user.CreatedAt,
-            UpdatedAt = user.UpdatedAt
+            UpdatedAt = user.UpdatedAt,
+            EmailNotifications = user.EmailNotifications,
+            SmsNotifications = user.SmsNotifications
         };
 
         return ApiResponse<ProfileResponse>.Ok(profile);
@@ -69,6 +71,18 @@ public class ProfileService : IProfileService
             user.ProfilePhotoUrl = request.ProfilePhotoUrl;
         }
 
+        // Actualizar preferencias de notificación
+        if (request.EmailNotifications.HasValue)
+        {
+            user.EmailNotifications = request.EmailNotifications.Value;
+        }
+
+        if (request.SmsNotifications.HasValue)
+        {
+            user.SmsNotifications = request.SmsNotifications.Value;
+        }
+
+        user.UpdatedAt = DateTime.UtcNow;
         await _userRepository.UpdateAsync(user);
 
         var profile = new ProfileResponse
@@ -83,7 +97,9 @@ public class ProfileService : IProfileService
             ProfilePhotoUrl = user.ProfilePhotoUrl,
             Role = user.Role?.RoleName ?? "Client",
             CreatedAt = user.CreatedAt,
-            UpdatedAt = user.UpdatedAt
+            UpdatedAt = user.UpdatedAt,
+            EmailNotifications = user.EmailNotifications,
+            SmsNotifications = user.SmsNotifications
         };
 
         return ApiResponse<ProfileResponse>.Ok(profile, "Perfil actualizado exitosamente");

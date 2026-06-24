@@ -59,6 +59,10 @@ public class User
 
     public DateTime? UpdatedAt { get; set; }
 
+    // Preferencias de notificación
+    public bool EmailNotifications { get; set; } = true;
+    public bool SmsNotifications { get; set; } = true;
+
     // Propiedades de navegación
     [ForeignKey("RoleId")]
     public Role? Role { get; set; }

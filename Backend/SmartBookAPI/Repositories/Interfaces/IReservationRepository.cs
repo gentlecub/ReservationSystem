@@ -16,4 +16,14 @@ public interface IReservationRepository
     /// Verifica si existe una reserva que se solape con el horario dado
     /// </summary>
     Task<bool> HasConflictAsync(int resourceId, DateOnly date, TimeOnly startTime, TimeOnly endTime, int? excludeReservationId = null);
+
+    /// <summary>
+    /// Obtiene las reservas confirmadas para una fecha específica que no han recibido recordatorio
+    /// </summary>
+    Task<IEnumerable<Reservation>> GetConfirmedReservationsForDateWithoutReminderAsync(DateOnly date);
+
+    /// <summary>
+    /// Marca una reserva como recordada
+    /// </summary>
+    Task MarkReminderSentAsync(int reservationId);
 }

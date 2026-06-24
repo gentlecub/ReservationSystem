@@ -14,4 +14,8 @@ public class UpdateProfileRequest
     [StringLength(500, ErrorMessage = "La URL de la foto no puede exceder 500 caracteres")]
     [Url(ErrorMessage = "El formato de la URL no es válido")]
     public string? ProfilePhotoUrl { get; set; }
+
+    // Preferencias de notificación
+    public bool? EmailNotifications { get; set; }
+    public bool? SmsNotifications { get; set; }
 }

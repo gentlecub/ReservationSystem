@@ -19,6 +19,11 @@ function ProfilePage() {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // Estados para preferencias de notificacion
+  const [emailNotifications, setEmailNotifications] = useState(true)
+  const [smsNotifications, setSmsNotifications] = useState(true)
+  const [savingNotifications, setSavingNotifications] = useState(false)
+
   // Estados para cambio de contrasena
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
@@ -42,6 +47,8 @@ function ProfilePage() {
         setFullName(response.data.fullName)
         setPhoneNumber(response.data.phoneNumber || '')
         setProfilePhotoUrl(response.data.profilePhotoUrl || '')
+        setEmailNotifications(response.data.emailNotifications ?? true)
+        setSmsNotifications(response.data.smsNotifications ?? true)
       } else {
         setError(response.message || 'Error al cargar perfil')
       }
@@ -150,6 +157,35 @@ function ProfilePage() {
     } finally {
       setDeleting(false)
       setShowDeleteConfirm(false)
+    }
+  }
+
+  const handleSaveNotificationPreferences = async (emailEnabled, smsEnabled) => {
+    setError('')
+    setSuccess('')
+    setSavingNotifications(true)
+
+    try {
+      const response = await profileService.updateProfile({
+        emailNotifications: emailEnabled,
+        smsNotifications: smsEnabled
+      })
+
+      if (response.success) {
+        setProfile(response.data)
+        setEmailNotifications(response.data.emailNotifications)
+        setSmsNotifications(response.data.smsNotifications)
+        setSuccess('Preferencias de notificacion actualizadas')
+      } else {
+        setError(response.message || 'Error al actualizar preferencias')
+      }
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+        'Error al actualizar preferencias'
+      )
+    } finally {
+      setSavingNotifications(false)
     }
   }
 
@@ -419,6 +455,63 @@ function ProfilePage() {
               </div>
             </div>
           )}
+
+          {/* Preferencias de notificacion */}
+          <div className="card shadow-sm mb-4">
+            <div className="card-header">
+              <h5 className="mb-0">Preferencias de notificacion</h5>
+            </div>
+            <div className="card-body">
+              <p className="text-muted mb-3">
+                Configura como quieres recibir notificaciones sobre tus reservas.
+              </p>
+              <div className="form-check form-switch mb-3">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id="emailNotifications"
+                  checked={emailNotifications}
+                  disabled={savingNotifications || !profile?.emailVerified}
+                  onChange={(e) => {
+                    const newValue = e.target.checked
+                    setEmailNotifications(newValue)
+                    handleSaveNotificationPreferences(newValue, smsNotifications)
+                  }}
+                />
+                <label className="form-check-label" htmlFor="emailNotifications">
+                  Notificaciones por email
+                  {!profile?.emailVerified && (
+                    <span className="text-muted small ms-2">(Email no verificado)</span>
+                  )}
+                </label>
+              </div>
+              <div className="form-check form-switch">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id="smsNotifications"
+                  checked={smsNotifications}
+                  disabled={savingNotifications || !profile?.phoneVerified}
+                  onChange={(e) => {
+                    const newValue = e.target.checked
+                    setSmsNotifications(newValue)
+                    handleSaveNotificationPreferences(emailNotifications, newValue)
+                  }}
+                />
+                <label className="form-check-label" htmlFor="smsNotifications">
+                  Notificaciones por SMS
+                  {!profile?.phoneVerified && (
+                    <span className="text-muted small ms-2">(Telefono no verificado)</span>
+                  )}
+                </label>
+              </div>
+              {savingNotifications && (
+                <div className="mt-2">
+                  <small className="text-muted">Guardando...</small>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Zona de peligro */}
           <div className="card shadow-sm border-danger">

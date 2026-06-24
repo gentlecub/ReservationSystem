@@ -101,4 +101,25 @@ public class ReservationRepository : IReservationRepository
         return await query.AnyAsync(r =>
             startTime < r.EndTime && endTime > r.StartTime);
     }
+
+    public async Task<IEnumerable<Reservation>> GetConfirmedReservationsForDateWithoutReminderAsync(DateOnly date)
+    {
+        return await _context.Reservations
+            .Include(r => r.User)
+            .Include(r => r.Resource)
+            .Where(r => r.Date == date)
+            .Where(r => r.Status == "Confirmed")
+            .Where(r => !r.ReminderSent)
+            .ToListAsync();
+    }
+
+    public async Task MarkReminderSentAsync(int reservationId)
+    {
+        var reservation = await _context.Reservations.FindAsync(reservationId);
+        if (reservation != null)
+        {
+            reservation.ReminderSent = true;
+            await _context.SaveChangesAsync();
+        }
+    }
 }

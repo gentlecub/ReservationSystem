@@ -10,13 +10,16 @@ public class ReservationService : IReservationService
 {
     private readonly IReservationRepository _reservationRepository;
     private readonly IResourceRepository _resourceRepository;
+    private readonly INotificationService _notificationService;
 
     public ReservationService(
         IReservationRepository reservationRepository,
-        IResourceRepository resourceRepository)
+        IResourceRepository resourceRepository,
+        INotificationService notificationService)
     {
         _reservationRepository = reservationRepository;
         _resourceRepository = resourceRepository;
+        _notificationService = notificationService;
     }
 
     public async Task<ApiResponse<IEnumerable<ReservationResponse>>> GetAllAsync()
@@ -96,6 +99,13 @@ public class ReservationService : IReservationService
         };
 
         await _reservationRepository.CreateAsync(reservation);
+
+        // Cargar el recurso para la notificación
+        reservation.Resource = resource;
+
+        // Enviar notificación de reserva creada (no bloquea la operación principal)
+        _ = _notificationService.NotifyReservationCreatedAsync(reservation);
+
         return ApiResponse<ReservationResponse>.Ok(MapToResponse(reservation), "Reserva creada exitosamente");
     }
 
@@ -107,10 +117,119 @@ public class ReservationService : IReservationService
             return ApiResponse<ReservationResponse>.Fail("Reserva no encontrada");
         }
 
+        var previousStatus = reservation.Status;
         reservation.Status = request.Status;
         await _reservationRepository.UpdateAsync(reservation);
 
+        // Enviar notificaciones según el cambio de estado
+        if (request.Status == "Confirmed" && previousStatus != "Confirmed")
+        {
+            _ = _notificationService.NotifyReservationConfirmedAsync(reservation);
+        }
+        else if (request.Status == "Cancelled" && previousStatus != "Cancelled")
+        {
+            _ = _notificationService.NotifyReservationCancelledAsync(reservation, "admin");
+        }
+
         return ApiResponse<ReservationResponse>.Ok(MapToResponse(reservation), "Estado de reserva actualizado");
+    }
+
+    public async Task<ApiResponse<ReservationResponse>> UpdateAsync(int id, int userId, bool isAdmin, ReservationRequest request)
+    {
+        var reservation = await _reservationRepository.GetByIdAsync(id);
+        if (reservation == null)
+        {
+            return ApiResponse<ReservationResponse>.Fail("Reserva no encontrada");
+        }
+
+        // Si no es admin, solo puede modificar sus propias reservas
+        if (!isAdmin && reservation.UserId != userId)
+        {
+            return ApiResponse<ReservationResponse>.Fail("No tienes permiso para modificar esta reserva");
+        }
+
+        // Solo se pueden modificar reservas pendientes o confirmadas
+        if (reservation.Status == "Cancelled")
+        {
+            return ApiResponse<ReservationResponse>.Fail("No se puede modificar una reserva cancelada");
+        }
+
+        // Validar que el recurso existe y está activo si se cambia
+        if (request.ResourceId != reservation.ResourceId)
+        {
+            var resource = await _resourceRepository.GetByIdAsync(request.ResourceId);
+            if (resource == null)
+            {
+                return ApiResponse<ReservationResponse>.Fail("Recurso no encontrado");
+            }
+            if (!resource.IsActive)
+            {
+                return ApiResponse<ReservationResponse>.Fail("El recurso no está disponible");
+            }
+        }
+
+        // Validar que la hora de fin sea mayor a la de inicio
+        if (request.EndTime <= request.StartTime)
+        {
+            return ApiResponse<ReservationResponse>.Fail("La hora de fin debe ser mayor a la hora de inicio");
+        }
+
+        // Validar que la fecha no sea en el pasado
+        if (request.Date < DateOnly.FromDateTime(DateTime.Today))
+        {
+            return ApiResponse<ReservationResponse>.Fail("No se puede reservar en fechas pasadas");
+        }
+
+        // Verificar disponibilidad (excluyendo la reserva actual)
+        var hasConflict = await _reservationRepository.HasConflictAsync(
+            request.ResourceId,
+            request.Date,
+            request.StartTime,
+            request.EndTime,
+            id); // Excluir la reserva actual
+
+        if (hasConflict)
+        {
+            return ApiResponse<ReservationResponse>.Fail(
+                "El recurso ya está reservado en ese horario. Por favor seleccione otro horario.");
+        }
+
+        // Construir descripción de cambios para la notificación
+        var changes = new List<string>();
+        if (reservation.ResourceId != request.ResourceId)
+        {
+            var newResource = await _resourceRepository.GetByIdAsync(request.ResourceId);
+            changes.Add($"Recurso: {reservation.Resource?.Name ?? "anterior"} → {newResource?.Name ?? "nuevo"}");
+        }
+        if (reservation.Date != request.Date)
+        {
+            changes.Add($"Fecha: {reservation.Date:dd/MM/yyyy} → {request.Date:dd/MM/yyyy}");
+        }
+        if (reservation.StartTime != request.StartTime || reservation.EndTime != request.EndTime)
+        {
+            changes.Add($"Horario: {reservation.StartTime:HH:mm}-{reservation.EndTime:HH:mm} → {request.StartTime:HH:mm}-{request.EndTime:HH:mm}");
+        }
+
+        // Actualizar la reserva
+        reservation.ResourceId = request.ResourceId;
+        reservation.Date = request.Date;
+        reservation.StartTime = request.StartTime;
+        reservation.EndTime = request.EndTime;
+        reservation.ReminderSent = false; // Resetear recordatorio si cambia la fecha
+
+        await _reservationRepository.UpdateAsync(reservation);
+
+        // Recargar con el recurso actualizado
+        reservation = await _reservationRepository.GetByIdAsync(id);
+
+        // Notificar al usuario sobre la modificación
+        if (changes.Count > 0)
+        {
+            var changesText = string.Join(", ", changes);
+            _ = _notificationService.NotifyReservationModifiedAsync(reservation!, changesText);
+        }
+
+        return ApiResponse<ReservationResponse>.Ok(MapToResponse(reservation!), "Reserva modificada exitosamente");
     }
 
     public async Task<ApiResponse> DeleteAsync(int id, int userId, bool isAdmin)
@@ -127,9 +246,18 @@ public class ReservationService : IReservationService
             return ApiResponse.Fail("No tienes permiso para cancelar esta reserva");
         }
 
+        var previousStatus = reservation.Status;
+
         // Cambiar estado a Cancelled en lugar de eliminar físicamente
         reservation.Status = "Cancelled";
         await _reservationRepository.UpdateAsync(reservation);
+
+        // Enviar notificación de cancelación si no estaba ya cancelada
+        if (previousStatus != "Cancelled")
+        {
+            var cancelledBy = isAdmin ? "admin" : "user";
+            _ = _notificationService.NotifyReservationCancelledAsync(reservation, cancelledBy);
+        }
 
         return ApiResponse.Ok("Reserva cancelada exitosamente");
     }

@@ -75,7 +75,7 @@ public class ReservationsController : ControllerBase
     /// <summary>
     /// Actualizar estado de una reserva (solo Admin)
     /// </summary>
-    [HttpPut("{id}")]
+    [HttpPut("{id}/status")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] ReservationUpdateRequest request)
     {
@@ -83,6 +83,23 @@ public class ReservationsController : ControllerBase
 
         if (!result.Success)
             return NotFound(result);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Modificar una reserva (fecha, hora, recurso). Client: solo las suyas | Admin: cualquiera
+    /// </summary>
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] ReservationRequest request)
+    {
+        var userId = GetCurrentUserId();
+        var isAdmin = IsAdmin();
+
+        var result = await _reservationService.UpdateAsync(id, userId, isAdmin, request);
+
+        if (!result.Success)
+            return BadRequest(result);
 
         return Ok(result);
     }
