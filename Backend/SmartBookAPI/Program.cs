@@ -13,6 +13,10 @@ using SmartBookAPI.Services;
 using SmartBookAPI.Services.Implementations;
 using SmartBookAPI.Services.Interfaces;
 
+// Habilitar comportamiento legacy de timestamps para PostgreSQL
+// Esto permite usar DateTime sin especificar Kind=UTC
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ============================================
