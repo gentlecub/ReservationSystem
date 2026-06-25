@@ -140,7 +140,7 @@ public class AuthService : IAuthService
 
         if (string.IsNullOrEmpty(user.PasswordHash))
         {
-            return ApiResponse<AuthResponse>.Fail("Esta cuenta usa autenticación externa. Usa Google para iniciar sesión.");
+            return ApiResponse<AuthResponse>.Fail("Esta cuenta no tiene contraseña configurada. Usa Google para iniciar sesión o recupera tu contraseña para establecer una.");
         }
 
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
@@ -309,11 +309,7 @@ public class AuthService : IAuthService
             return ApiResponse<string>.Ok("Si el email existe, recibirás instrucciones para recuperar tu contraseña");
         }
 
-        if (user.AuthProvider != "Local")
-        {
-            return ApiResponse<string>.Fail($"Esta cuenta usa {user.AuthProvider} para autenticarse");
-        }
-
+        // Permitir establecer contraseña para cuentas de Google también
         var resetToken = GenerateSecureToken();
         user.PasswordResetToken = resetToken;
         user.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(1);
