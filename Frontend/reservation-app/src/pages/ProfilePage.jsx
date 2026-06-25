@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import profileService from '../services/profileService'
+import calendarService from '../services/calendarService'
 
 function ProfilePage() {
   const { logout, updateUser } = useAuth()
@@ -35,8 +36,26 @@ function ProfilePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  // Estado para calendarios conectados
+  const [calendarConnections, setCalendarConnections] = useState([])
+  const [loadingCalendars, setLoadingCalendars] = useState(false)
+  const [connectingCalendar, setConnectingCalendar] = useState(null)
+
+  const [searchParams] = useSearchParams()
+
   useEffect(() => {
     loadProfile()
+    loadCalendarConnections()
+
+    // Verificar si venimos de un callback de calendario
+    const calendarStatus = searchParams.get('status')
+    const calendarProvider = searchParams.get('calendar')
+    if (calendarStatus === 'success' && calendarProvider) {
+      setSuccess(`${calendarProvider === 'google' ? 'Google' : 'Microsoft'} Calendar conectado exitosamente`)
+      loadCalendarConnections()
+    } else if (calendarStatus === 'error' && calendarProvider) {
+      setError(`Error al conectar ${calendarProvider === 'google' ? 'Google' : 'Microsoft'} Calendar`)
+    }
   }, [])
 
   const loadProfile = async () => {
@@ -60,6 +79,76 @@ function ProfilePage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadCalendarConnections = async () => {
+    setLoadingCalendars(true)
+    try {
+      const response = await calendarService.getConnections()
+      if (response.success) {
+        setCalendarConnections(response.data || [])
+      }
+    } catch (err) {
+      console.error('Error loading calendar connections:', err)
+    } finally {
+      setLoadingCalendars(false)
+    }
+  }
+
+  const handleConnectGoogle = async () => {
+    setConnectingCalendar('Google')
+    try {
+      const response = await calendarService.getGoogleAuthUrl()
+      if (response.success && response.data?.authUrl) {
+        window.location.href = response.data.authUrl
+      } else {
+        setError(response.message || 'Error al obtener URL de autorizacion')
+        setConnectingCalendar(null)
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error al conectar con Google Calendar')
+      setConnectingCalendar(null)
+    }
+  }
+
+  const handleConnectMicrosoft = async () => {
+    setConnectingCalendar('Microsoft')
+    try {
+      const response = await calendarService.getMicrosoftAuthUrl()
+      if (response.success && response.data?.authUrl) {
+        window.location.href = response.data.authUrl
+      } else {
+        setError(response.message || 'Error al obtener URL de autorizacion')
+        setConnectingCalendar(null)
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error al conectar con Microsoft Calendar')
+      setConnectingCalendar(null)
+    }
+  }
+
+  const handleDisconnectCalendar = async (provider) => {
+    if (!confirm(`¿Desconectar ${provider} Calendar?`)) return
+
+    try {
+      const response = await calendarService.disconnect(provider)
+      if (response.success) {
+        setSuccess(`${provider} Calendar desconectado`)
+        loadCalendarConnections()
+      } else {
+        setError(response.message || 'Error al desconectar calendario')
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error al desconectar calendario')
+    }
+  }
+
+  const isCalendarConnected = (provider) => {
+    return calendarConnections.some(c => c.provider === provider && c.isActive)
+  }
+
+  const getCalendarConnection = (provider) => {
+    return calendarConnections.find(c => c.provider === provider && c.isActive)
   }
 
   const handleSaveProfile = async (e) => {
@@ -510,6 +599,103 @@ function ProfilePage() {
                   <small className="text-muted">Guardando...</small>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Calendarios conectados */}
+          <div className="card shadow-sm mb-4">
+            <div className="card-header">
+              <h5 className="mb-0">Calendarios conectados</h5>
+            </div>
+            <div className="card-body">
+              <p className="text-muted mb-3">
+                Conecta tu calendario para sincronizar tus reservas automaticamente.
+              </p>
+
+              {loadingCalendars ? (
+                <div className="text-center py-3">
+                  <div className="spinner-border spinner-border-sm text-primary" role="status">
+                    <span className="visually-hidden">Cargando...</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="d-flex flex-column gap-3">
+                  {/* Google Calendar */}
+                  <div className="d-flex justify-content-between align-items-center p-3 border rounded">
+                    <div className="d-flex align-items-center gap-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 48 48">
+                        <path fill="#4285F4" d="M24 4c2.7 0 5.2.5 7.5 1.5l-3 5.2c-1.4-.5-2.9-.7-4.5-.7-7.7 0-14 6.3-14 14s6.3 14 14 14c6.1 0 11.3-3.9 13.2-9.4H24v-6h20c.3 1.3.5 2.6.5 4 0 11-9 20-20 20S4 35 4 24 13 4 24 4z"/>
+                      </svg>
+                      <div>
+                        <strong>Google Calendar</strong>
+                        {isCalendarConnected('Google') && (
+                          <div className="text-muted small">
+                            {getCalendarConnection('Google')?.calendarEmail}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {isCalendarConnected('Google') ? (
+                      <button
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={() => handleDisconnectCalendar('Google')}
+                      >
+                        Desconectar
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-outline-primary btn-sm"
+                        onClick={handleConnectGoogle}
+                        disabled={connectingCalendar === 'Google'}
+                      >
+                        {connectingCalendar === 'Google' ? 'Conectando...' : 'Conectar'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Microsoft Calendar */}
+                  <div className="d-flex justify-content-between align-items-center p-3 border rounded">
+                    <div className="d-flex align-items-center gap-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 48 48">
+                        <path fill="#00A4EF" d="M4 4h19v19H4z"/>
+                        <path fill="#7FBA00" d="M25 4h19v19H25z"/>
+                        <path fill="#FFB900" d="M4 25h19v19H4z"/>
+                        <path fill="#F25022" d="M25 25h19v19H25z"/>
+                      </svg>
+                      <div>
+                        <strong>Microsoft Outlook</strong>
+                        {isCalendarConnected('Microsoft') && (
+                          <div className="text-muted small">
+                            {getCalendarConnection('Microsoft')?.calendarEmail}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {isCalendarConnected('Microsoft') ? (
+                      <button
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={() => handleDisconnectCalendar('Microsoft')}
+                      >
+                        Desconectar
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-outline-primary btn-sm"
+                        onClick={handleConnectMicrosoft}
+                        disabled={connectingCalendar === 'Microsoft'}
+                      >
+                        {connectingCalendar === 'Microsoft' ? 'Conectando...' : 'Conectar'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-3">
+                <small className="text-muted">
+                  Al conectar tu calendario, tus reservas se agregaran automaticamente como eventos.
+                </small>
+              </div>
             </div>
           </div>
 
