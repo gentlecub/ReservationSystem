@@ -409,24 +409,47 @@ public class AuthService : IAuthService
         return random.Next(100000, 999999).ToString();
     }
 
-    private async Task<GoogleUserInfo?> ValidateGoogleTokenAsync(string accessToken)
+    private async Task<GoogleUserInfo?> ValidateGoogleTokenAsync(string token)
     {
         try
         {
             var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var response = await client.GetAsync("https://www.googleapis.com/oauth2/v2/userinfo");
-            if (!response.IsSuccessStatusCode)
+            // Primero intentar validar como ID Token (Google Sign-In GSI)
+            var idTokenResponse = await client.GetAsync($"https://oauth2.googleapis.com/tokeninfo?id_token={token}");
+            if (idTokenResponse.IsSuccessStatusCode)
             {
-                return null;
+                var content = await idTokenResponse.Content.ReadAsStringAsync();
+                var tokenInfo = JsonSerializer.Deserialize<GoogleIdTokenInfo>(content, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (tokenInfo != null)
+                {
+                    return new GoogleUserInfo
+                    {
+                        Id = tokenInfo.Sub,
+                        Email = tokenInfo.Email,
+                        Name = tokenInfo.Name,
+                        Picture = tokenInfo.Picture ?? string.Empty
+                    };
+                }
             }
 
-            var content = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<GoogleUserInfo>(content, new JsonSerializerOptions
+            // Si falla, intentar como Access Token (OAuth tradicional)
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var userInfoResponse = await client.GetAsync("https://www.googleapis.com/oauth2/v2/userinfo");
+            if (userInfoResponse.IsSuccessStatusCode)
             {
-                PropertyNameCaseInsensitive = true
-            });
+                var content = await userInfoResponse.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<GoogleUserInfo>(content, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+            }
+
+            return null;
         }
         catch
         {
@@ -440,5 +463,13 @@ public class AuthService : IAuthService
         public string Email { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Picture { get; set; } = string.Empty;
+    }
+
+    private class GoogleIdTokenInfo
+    {
+        public string Sub { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Picture { get; set; }
     }
 }
