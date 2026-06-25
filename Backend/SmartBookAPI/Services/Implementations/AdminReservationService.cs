@@ -11,11 +11,16 @@ public class AdminReservationService : IAdminReservationService
 {
     private readonly AppDbContext _context;
     private readonly IWaitlistService _waitlistService;
+    private readonly INotificationService _notificationService;
 
-    public AdminReservationService(AppDbContext context, IWaitlistService waitlistService)
+    public AdminReservationService(
+        AppDbContext context,
+        IWaitlistService waitlistService,
+        INotificationService notificationService)
     {
         _context = context;
         _waitlistService = waitlistService;
+        _notificationService = notificationService;
     }
 
     public async Task<ApiResponse<AdminReservationListResponse>> GetWithFiltersAsync(AdminReservationFilterRequest filter)
@@ -153,10 +158,13 @@ public class AdminReservationService : IAdminReservationService
 
         var reservations = await _context.Reservations
             .Include(r => r.Resource)
+            .Include(r => r.User)
             .Where(r => reservationIds.Contains(r.ReservationId))
             .ToListAsync();
 
         var updatedCount = 0;
+        var notificationTasks = new List<Task>();
+
         foreach (var reservation in reservations)
         {
             if (reservation.Status != newStatus)
@@ -165,19 +173,35 @@ public class AdminReservationService : IAdminReservationService
                 reservation.Status = newStatus;
                 updatedCount++;
 
-                // Si se cancela, procesar lista de espera
-                if (newStatus == "Cancelled" && previousStatus != "Cancelled")
+                // Enviar notificación según el nuevo estado
+                if (newStatus == "Confirmed")
                 {
-                    await _waitlistService.ProcessWaitlistForSlotAsync(
-                        reservation.ResourceId,
-                        reservation.Date,
-                        reservation.StartTime,
-                        reservation.EndTime);
+                    notificationTasks.Add(_notificationService.NotifyReservationConfirmedAsync(reservation));
+                }
+                else if (newStatus == "Cancelled")
+                {
+                    notificationTasks.Add(_notificationService.NotifyReservationCancelledAsync(reservation, "Administrador"));
+
+                    // Si se cancela, procesar lista de espera
+                    if (previousStatus != "Cancelled")
+                    {
+                        await _waitlistService.ProcessWaitlistForSlotAsync(
+                            reservation.ResourceId,
+                            reservation.Date,
+                            reservation.StartTime,
+                            reservation.EndTime);
+                    }
                 }
             }
         }
 
         await _context.SaveChangesAsync();
+
+        // Enviar todas las notificaciones en paralelo
+        if (notificationTasks.Count > 0)
+        {
+            await Task.WhenAll(notificationTasks);
+        }
 
         return ApiResponse<int>.Ok(updatedCount, $"{updatedCount} reservas actualizadas exitosamente");
     }
