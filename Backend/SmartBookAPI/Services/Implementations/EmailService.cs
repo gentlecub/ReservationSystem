@@ -1,5 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Mail;
+using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using SmartBookAPI.Configuration;
 using SmartBookAPI.DTOs.Notifications;
@@ -13,17 +16,20 @@ public class EmailService : IEmailService
     private readonly AppSettings _appSettings;
     private readonly ILogger<EmailService> _logger;
     private readonly IWebHostEnvironment _environment;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     public EmailService(
         IOptions<EmailSettings> emailSettings,
         IOptions<AppSettings> appSettings,
         ILogger<EmailService> logger,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        IHttpClientFactory httpClientFactory)
     {
         _emailSettings = emailSettings.Value;
         _appSettings = appSettings.Value;
         _logger = logger;
         _environment = environment;
+        _httpClientFactory = httpClientFactory;
     }
 
     public async Task<bool> SendEmailVerificationAsync(string email, string fullName, string token)
@@ -242,37 +248,92 @@ public class EmailService : IEmailService
     {
         try
         {
-            var smtpPassword = GetSmtpPassword();
-            if (string.IsNullOrEmpty(smtpPassword))
+            // En producción usar Resend API, en desarrollo usar SMTP
+            if (_environment.IsProduction())
             {
-                _logger.LogWarning("SMTP password not configured. Email not sent to {Email}", toEmail);
-                return false;
+                return await SendWithResendAsync(toEmail, subject, htmlBody);
             }
-
-            using var client = new SmtpClient(_emailSettings.SmtpServer, _emailSettings.SmtpPort)
+            else
             {
-                Credentials = new NetworkCredential(_emailSettings.SenderEmail, smtpPassword),
-                EnableSsl = _emailSettings.EnableSsl
-            };
-
-            var message = new MailMessage
-            {
-                From = new MailAddress(_emailSettings.SenderEmail, _emailSettings.SenderName),
-                Subject = subject,
-                Body = htmlBody,
-                IsBodyHtml = true
-            };
-            message.To.Add(toEmail);
-
-            await client.SendMailAsync(message);
-            _logger.LogInformation("Email sent successfully to {Email}", toEmail);
-            return true;
+                return await SendWithSmtpAsync(toEmail, subject, htmlBody);
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending email to {Email}", toEmail);
             return false;
         }
+    }
+
+    private async Task<bool> SendWithResendAsync(string toEmail, string subject, string htmlBody)
+    {
+        var apiKey = Environment.GetEnvironmentVariable("RESEND_API_KEY");
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            _logger.LogWarning("RESEND_API_KEY not configured. Email not sent to {Email}", toEmail);
+            return false;
+        }
+
+        var fromEmail = Environment.GetEnvironmentVariable("RESEND_FROM_EMAIL") ?? "onboarding@resend.dev";
+        var fromName = _emailSettings.SenderName;
+
+        using var client = _httpClientFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+        var payload = new
+        {
+            from = $"{fromName} <{fromEmail}>",
+            to = new[] { toEmail },
+            subject = subject,
+            html = htmlBody
+        };
+
+        var content = new StringContent(
+            JsonSerializer.Serialize(payload),
+            Encoding.UTF8,
+            "application/json");
+
+        var response = await client.PostAsync("https://api.resend.com/emails", content);
+
+        if (response.IsSuccessStatusCode)
+        {
+            _logger.LogInformation("Email sent successfully via Resend to {Email}", toEmail);
+            return true;
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Resend API error: {Error}", error);
+            return false;
+        }
+    }
+
+    private async Task<bool> SendWithSmtpAsync(string toEmail, string subject, string htmlBody)
+    {
+        if (string.IsNullOrEmpty(_emailSettings.Password))
+        {
+            _logger.LogWarning("SMTP password not configured. Email not sent to {Email}", toEmail);
+            return false;
+        }
+
+        using var client = new SmtpClient(_emailSettings.SmtpServer, _emailSettings.SmtpPort)
+        {
+            Credentials = new NetworkCredential(_emailSettings.SenderEmail, _emailSettings.Password),
+            EnableSsl = _emailSettings.EnableSsl
+        };
+
+        var message = new MailMessage
+        {
+            From = new MailAddress(_emailSettings.SenderEmail, _emailSettings.SenderName),
+            Subject = subject,
+            Body = htmlBody,
+            IsBodyHtml = true
+        };
+        message.To.Add(toEmail);
+
+        await client.SendMailAsync(message);
+        _logger.LogInformation("Email sent successfully to {Email}", toEmail);
+        return true;
     }
 
     private string GetSmtpPassword()
