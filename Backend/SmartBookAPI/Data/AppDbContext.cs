@@ -19,6 +19,9 @@ public class AppDbContext : DbContext
     public DbSet<Resource> Resources { get; set; }
     public DbSet<Reservation> Reservations { get; set; }
     public DbSet<NotificationLog> NotificationLogs { get; set; }
+    public DbSet<CalendarConnection> CalendarConnections { get; set; }
+    public DbSet<ReservationCalendarEvent> ReservationCalendarEvents { get; set; }
+    public DbSet<WaitlistEntry> WaitlistEntries { get; set; }
 
     /// <summary>
     /// Configura el modelo de datos usando Fluent API.
@@ -128,6 +131,79 @@ public class AppDbContext : DbContext
 
             // Índice para buscar notificaciones por tipo
             entity.HasIndex(n => n.Type);
+        });
+
+        // ============================================
+        // CONFIGURACIÓN DE LA ENTIDAD CALENDAR CONNECTION
+        // ============================================
+        modelBuilder.Entity<CalendarConnection>(entity =>
+        {
+            entity.ToTable("CalendarConnections");
+
+            // Relación: Una CalendarConnection pertenece a un User
+            entity.HasOne(c => c.User)
+                  .WithMany()
+                  .HasForeignKey(c => c.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Un usuario solo puede tener una conexión por proveedor
+            entity.HasIndex(c => new { c.UserId, c.Provider })
+                  .IsUnique();
+        });
+
+        // ============================================
+        // CONFIGURACIÓN DE LA ENTIDAD RESERVATION CALENDAR EVENT
+        // ============================================
+        modelBuilder.Entity<ReservationCalendarEvent>(entity =>
+        {
+            entity.ToTable("ReservationCalendarEvents");
+
+            // Relación: Un ReservationCalendarEvent pertenece a una Reservation
+            entity.HasOne(e => e.Reservation)
+                  .WithMany()
+                  .HasForeignKey(e => e.ReservationId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Relación: Un ReservationCalendarEvent pertenece a una CalendarConnection
+            entity.HasOne(e => e.CalendarConnection)
+                  .WithMany(c => c.CalendarEvents)
+                  .HasForeignKey(e => e.CalendarConnectionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Índice para buscar eventos por reserva
+            entity.HasIndex(e => e.ReservationId);
+        });
+
+        // ============================================
+        // CONFIGURACIÓN DE LA ENTIDAD WAITLIST ENTRY
+        // ============================================
+        modelBuilder.Entity<WaitlistEntry>(entity =>
+        {
+            entity.ToTable("WaitlistEntries");
+
+            // Relación: Una WaitlistEntry pertenece a un User
+            entity.HasOne(w => w.User)
+                  .WithMany()
+                  .HasForeignKey(w => w.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Relación: Una WaitlistEntry pertenece a un Resource
+            entity.HasOne(w => w.Resource)
+                  .WithMany()
+                  .HasForeignKey(w => w.ResourceId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Índice compuesto para verificar entradas duplicadas
+            entity.HasIndex(w => new { w.UserId, w.ResourceId, w.PreferredDate, w.Status });
+
+            // Índice para buscar por recurso y fecha
+            entity.HasIndex(w => new { w.ResourceId, w.PreferredDate, w.Status });
+
+            // Índice para buscar por usuario
+            entity.HasIndex(w => w.UserId);
+
+            // Índice para ordenar por posición
+            entity.HasIndex(w => w.Position);
         });
     }
 }

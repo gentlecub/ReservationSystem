@@ -3,6 +3,7 @@ using SmartBookAPI.DTOs.Reservation;
 using SmartBookAPI.Models;
 using SmartBookAPI.Repositories.Interfaces;
 using SmartBookAPI.Services.Interfaces;
+using SmartBookAPI.DTOs.Waitlist;
 
 namespace SmartBookAPI.Services.Implementations;
 
@@ -11,15 +12,21 @@ public class ReservationService : IReservationService
     private readonly IReservationRepository _reservationRepository;
     private readonly IResourceRepository _resourceRepository;
     private readonly INotificationService _notificationService;
+    private readonly ICalendarService _calendarService;
+    private readonly IWaitlistRepository _waitlistRepository;
 
     public ReservationService(
         IReservationRepository reservationRepository,
         IResourceRepository resourceRepository,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        ICalendarService calendarService,
+        IWaitlistRepository waitlistRepository)
     {
         _reservationRepository = reservationRepository;
         _resourceRepository = resourceRepository;
         _notificationService = notificationService;
+        _calendarService = calendarService;
+        _waitlistRepository = waitlistRepository;
     }
 
     public async Task<ApiResponse<IEnumerable<ReservationResponse>>> GetAllAsync()
@@ -106,6 +113,9 @@ public class ReservationService : IReservationService
         // Enviar notificación de reserva creada (no bloquea la operación principal)
         _ = _notificationService.NotifyReservationCreatedAsync(reservation);
 
+        // Crear evento en calendarios conectados (no bloquea)
+        _ = _calendarService.CreateEventAsync(reservation);
+
         return ApiResponse<ReservationResponse>.Ok(MapToResponse(reservation), "Reserva creada exitosamente");
     }
 
@@ -125,10 +135,16 @@ public class ReservationService : IReservationService
         if (request.Status == "Confirmed" && previousStatus != "Confirmed")
         {
             _ = _notificationService.NotifyReservationConfirmedAsync(reservation);
+            // Crear evento en calendario al confirmar
+            _ = _calendarService.CreateEventAsync(reservation);
         }
         else if (request.Status == "Cancelled" && previousStatus != "Cancelled")
         {
             _ = _notificationService.NotifyReservationCancelledAsync(reservation, "admin");
+            // Eliminar evento del calendario al cancelar
+            _ = _calendarService.DeleteEventAsync(reservation);
+            // Procesar lista de espera
+            _ = ProcessWaitlistOnCancellationAsync(reservation);
         }
 
         return ApiResponse<ReservationResponse>.Ok(MapToResponse(reservation), "Estado de reserva actualizado");
@@ -227,6 +243,8 @@ public class ReservationService : IReservationService
         {
             var changesText = string.Join(", ", changes);
             _ = _notificationService.NotifyReservationModifiedAsync(reservation!, changesText);
+            // Actualizar evento en calendarios conectados
+            _ = _calendarService.UpdateEventAsync(reservation!);
         }
 
         return ApiResponse<ReservationResponse>.Ok(MapToResponse(reservation!), "Reserva modificada exitosamente");
@@ -257,9 +275,42 @@ public class ReservationService : IReservationService
         {
             var cancelledBy = isAdmin ? "admin" : "user";
             _ = _notificationService.NotifyReservationCancelledAsync(reservation, cancelledBy);
+            // Eliminar evento del calendario
+            _ = _calendarService.DeleteEventAsync(reservation);
+
+            // Procesar lista de espera: notificar al primer usuario en la cola
+            _ = ProcessWaitlistOnCancellationAsync(reservation);
         }
 
         return ApiResponse.Ok("Reserva cancelada exitosamente");
+    }
+
+    /// <summary>
+    /// Procesa la lista de espera cuando se cancela una reserva
+    /// </summary>
+    private async Task ProcessWaitlistOnCancellationAsync(Reservation cancelledReservation)
+    {
+        try
+        {
+            var firstInQueue = await _waitlistRepository.GetFirstInQueueAsync(
+                cancelledReservation.ResourceId,
+                cancelledReservation.Date);
+
+            if (firstInQueue != null)
+            {
+                // Marcar como notificado
+                firstInQueue.Status = "Notified";
+                firstInQueue.NotifiedAt = DateTime.UtcNow;
+                await _waitlistRepository.UpdateAsync(firstInQueue);
+
+                // Aquí podríamos enviar notificación al usuario de la lista de espera
+                // indicando que hay disponibilidad
+            }
+        }
+        catch
+        {
+            // No bloquear la cancelación si falla el procesamiento de lista de espera
+        }
     }
 
     private static ReservationResponse MapToResponse(Reservation reservation)

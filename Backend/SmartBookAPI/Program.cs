@@ -52,6 +52,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IResourceRepository, ResourceRepository>();
 builder.Services.AddScoped<IReservationRepository, ReservationRepository>();
+builder.Services.AddScoped<IWaitlistRepository, WaitlistRepository>();
 
 // ============================================
 // CONFIGURACIÓN DE SETTINGS
@@ -59,6 +60,8 @@ builder.Services.AddScoped<IReservationRepository, ReservationRepository>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<TwilioSettings>(builder.Configuration.GetSection("TwilioSettings"));
 builder.Services.Configure<AppSettings>(builder.Configuration.GetSection("AppSettings"));
+builder.Services.Configure<GoogleCalendarSettings>(builder.Configuration.GetSection("GoogleCalendar"));
+builder.Services.Configure<MicrosoftCalendarSettings>(builder.Configuration.GetSection("MicrosoftCalendar"));
 
 // ============================================
 // HTTP CLIENT FACTORY (para Google OAuth y Twilio)
@@ -77,6 +80,9 @@ builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<ICalendarService, CalendarService>();
+builder.Services.AddScoped<IWaitlistService, WaitlistService>();
+builder.Services.AddScoped<IAdminReservationService, AdminReservationService>();
 
 // ============================================
 // SIGNALR (Notificaciones Push en tiempo real)
