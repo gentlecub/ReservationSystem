@@ -110,11 +110,11 @@ public class ReservationService : IReservationService
         // Cargar el recurso para la notificación
         reservation.Resource = resource;
 
-        // Enviar notificación de reserva creada (no bloquea la operación principal)
-        _ = _notificationService.NotifyReservationCreatedAsync(reservation);
+        // Enviar notificación de reserva creada
+        await _notificationService.NotifyReservationCreatedAsync(reservation);
 
-        // Crear evento en calendarios conectados (no bloquea)
-        _ = _calendarService.CreateEventAsync(reservation);
+        // Crear evento en calendarios conectados
+        await _calendarService.CreateEventAsync(reservation);
 
         return ApiResponse<ReservationResponse>.Ok(MapToResponse(reservation), "Reserva creada exitosamente");
     }
@@ -134,17 +134,17 @@ public class ReservationService : IReservationService
         // Enviar notificaciones según el cambio de estado
         if (request.Status == "Confirmed" && previousStatus != "Confirmed")
         {
-            _ = _notificationService.NotifyReservationConfirmedAsync(reservation);
+            await _notificationService.NotifyReservationConfirmedAsync(reservation);
             // Crear evento en calendario al confirmar
-            _ = _calendarService.CreateEventAsync(reservation);
+            await _calendarService.CreateEventAsync(reservation);
         }
         else if (request.Status == "Cancelled" && previousStatus != "Cancelled")
         {
-            _ = _notificationService.NotifyReservationCancelledAsync(reservation, "admin");
+            await _notificationService.NotifyReservationCancelledAsync(reservation, "admin");
             // Eliminar evento del calendario al cancelar
-            _ = _calendarService.DeleteEventAsync(reservation);
+            await _calendarService.DeleteEventAsync(reservation);
             // Procesar lista de espera
-            _ = ProcessWaitlistOnCancellationAsync(reservation);
+            await ProcessWaitlistOnCancellationAsync(reservation);
         }
 
         return ApiResponse<ReservationResponse>.Ok(MapToResponse(reservation), "Estado de reserva actualizado");
@@ -242,9 +242,9 @@ public class ReservationService : IReservationService
         if (changes.Count > 0)
         {
             var changesText = string.Join(", ", changes);
-            _ = _notificationService.NotifyReservationModifiedAsync(reservation!, changesText);
+            await _notificationService.NotifyReservationModifiedAsync(reservation!, changesText);
             // Actualizar evento en calendarios conectados
-            _ = _calendarService.UpdateEventAsync(reservation!);
+            await _calendarService.UpdateEventAsync(reservation!);
         }
 
         return ApiResponse<ReservationResponse>.Ok(MapToResponse(reservation!), "Reserva modificada exitosamente");
@@ -274,12 +274,12 @@ public class ReservationService : IReservationService
         if (previousStatus != "Cancelled")
         {
             var cancelledBy = isAdmin ? "admin" : "user";
-            _ = _notificationService.NotifyReservationCancelledAsync(reservation, cancelledBy);
+            await _notificationService.NotifyReservationCancelledAsync(reservation, cancelledBy);
             // Eliminar evento del calendario
-            _ = _calendarService.DeleteEventAsync(reservation);
+            await _calendarService.DeleteEventAsync(reservation);
 
             // Procesar lista de espera: notificar al primer usuario en la cola
-            _ = ProcessWaitlistOnCancellationAsync(reservation);
+            await ProcessWaitlistOnCancellationAsync(reservation);
         }
 
         return ApiResponse.Ok("Reserva cancelada exitosamente");

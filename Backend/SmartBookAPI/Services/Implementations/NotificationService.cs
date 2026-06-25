@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using SmartBookAPI.Data;
 using SmartBookAPI.DTOs.Notifications;
 using SmartBookAPI.Models;
@@ -15,7 +16,7 @@ public class NotificationService : INotificationService
     private readonly ISmsService _smsService;
     private readonly IPushNotificationService _pushService;
     private readonly IUserRepository _userRepository;
-    private readonly AppDbContext _dbContext;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<NotificationService> _logger;
 
     public NotificationService(
@@ -23,14 +24,14 @@ public class NotificationService : INotificationService
         ISmsService smsService,
         IPushNotificationService pushService,
         IUserRepository userRepository,
-        AppDbContext dbContext,
+        IServiceScopeFactory scopeFactory,
         ILogger<NotificationService> logger)
     {
         _emailService = emailService;
         _smsService = smsService;
         _pushService = pushService;
         _userRepository = userRepository;
-        _dbContext = dbContext;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -206,6 +207,10 @@ public class NotificationService : INotificationService
     {
         try
         {
+            // Crear un nuevo scope para evitar problemas con DbContext disposed
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
             var log = new NotificationLog
             {
                 ReservationId = reservationId,
@@ -217,8 +222,8 @@ public class NotificationService : INotificationService
                 SentAt = DateTime.UtcNow
             };
 
-            _dbContext.NotificationLogs.Add(log);
-            await _dbContext.SaveChangesAsync();
+            dbContext.NotificationLogs.Add(log);
+            await dbContext.SaveChangesAsync();
         }
         catch (Exception ex)
         {
